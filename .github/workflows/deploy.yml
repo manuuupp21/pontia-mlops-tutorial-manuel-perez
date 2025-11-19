@@ -44,11 +44,11 @@ jobs:
           --os-type Linux \
           --cpu 0.5 \
           --memory 1.0 \
-          --location eastus
+          --location ${{vars.AZURE_REGION}}
 
       - name: Wait for container to start
         run: sleep 30
 
       - name: Probe REST API
         run: |
-          curl --fail http://${{vars.IMAGE_NAME}}-${{ github.run_id }}.eastus.azurecontainer.io:8080/health
+          curl --fail http://${{vars.IMAGE_NAME}}-${{ github.run_id }}.${{vars.AZURE_REGION}}.azurecontainer.io:8080/health
