@@ -13,42 +13,33 @@ jobs:
       - name: Log in to Azure
         uses: azure/login@v1
         with:
-          creds: |
-            "{ "clientId": "*************************",
-            "clientSecret": "**************************",
-            "subscriptionId": "**********************",
-            "tenantId": "**************************",
-            "activeDirectoryEndpointUrl": "https://login.microsoftonline.com",
-            "resourceManagerEndpointUrl": "https://management.azure.com/",
-            "activeDirectoryGraphResourceId": "https://graph.windows.net/",
-            "sqlManagementEndpointUrl": "https://management.core.windows.net:8443/",
-            "galleryEndpointUrl": "https://gallery.azure.com/",
-            "managementEndpointUrl": "https://management.core.windows.net/" }
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Log in to Azure Container Registry
-        run: az acr login --name mlflowexample
+        run: az acr login --name ${{ secrets.ACR_USERNAME }}
 
       - name: Set MODEL_URI environment variable
-        run: echo "MODEL_URI=models:/adult-income-classifier@$champion" >> $GITHUB_ENV
+        run: echo "MODEL_URI=models:/${{vars.MODEL_NAME}}@${{vars.MODEL_ALIAS}}" >> $GITHUB_ENV
 
       - name: Build Docker image
         run: |
-          docker build -t mlflowexample.azurecr.io/model-api ./deployment
+          cp requirements.txt ./deployment/requirements.txt
+          docker build -t ${{ secrets.ACR_NAME }}/${{ vars.IMAGE_NAME }} ./deployment
 
       - name: Push Docker image to ACR
         run: |
-          docker push mlflowexample.azurecr.io/model-api
+          docker push ${{ secrets.ACR_NAME }}/${{ vars.IMAGE_NAME }} 
 
       - name: Deploy to Azure Container Instances
         run: |
           az container create \
-          --name model-api \
-          --image mlflowexample.azurecr.io/model-api:latest \
-          --resource-group "mlflow-rg" --registry-login-server mlflowexample.azurecr.io \
-          --registry-username mlflowexample \
-          --registry-password ${{ WkcnTBEdOF7U3mW8H0rRaB2TTV+6KpU0kkmiBDNfqy+ACRAAy8+M }} \
-          --environment-variables MODEL_URI="models:/adult-income-classifier@champion" MLFLOW_TRACKING_URI="http://57.151.65.76:5000" AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;AccountName=mlflowstorage123456789;AccountKey=KhEtgeNcPUJXvRiXk+5xRQC1Ij0C7jQdOsPYvrzRTJNFjCJXTvQscxVKoL3/KkKf7NZm5JOExZnW+AStrwhXzQ==;EndpointSuffix=core.windows.net" \
-          --dns-name-label model-api-${{ github.run_id }} \
+          --name ${{vars.AZURE_CONTAINER_NAME}} \
+          --image ${{ secrets.ACR_NAME }}/${{ vars.IMAGE_NAME }} \
+          --resource-group "mlflow-rg" --registry-login-server ${{ secrets.ACR_NAME }} \
+          --registry-username ${{ secrets.ACR_USERNAME }} \
+          --registry-password ${{ secrets.ACR_PASSWORD }} \
+          --environment-variables MODEL_URI= ${{vars.MODEL_NAME}}@${{vars.MODEL_ALIAS}}  MLFLOW_TRACKING_URI= ${{vars.MLFLOW_URL}} AZURE_STORAGE_CONNECTION_STRING= ${{secrets.AZURE_STORAGE_CONNECTION_STRING}} \
+          --dns-name-label ${{vars.IMAGE_NAME}}-${{ github.run_id }} \
           --ports 8080 \
           --os-type Linux \
           --cpu 0.5 \
@@ -60,4 +51,4 @@ jobs:
 
       - name: Probe REST API
         run: |
-          curl --fail http://model-api-${{ github.run_id }}.eastus.azurecontainer.io:8080/health
+          curl --fail http://${{vars.IMAGE_NAME}}-${{ github.run_id }}.eastus.azurecontainer.io:8080/health

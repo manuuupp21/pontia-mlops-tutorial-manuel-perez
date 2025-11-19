@@ -9,8 +9,8 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /code
 
 # Install dependencies
-RUN pip install --upgrade pip
 COPY requirements.txt /code/
+RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
 # Copy project
